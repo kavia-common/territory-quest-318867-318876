@@ -1,4 +1,5 @@
 import logger from '../utils/logger.js';
+import { errorResponse } from '../utils/validation.js';
 
 // PUBLIC_INTERFACE
 /**
@@ -11,7 +12,9 @@ export const errorHandler = (err, req, res, next) => {
     method: req.method,
     url: req.url,
     ip: req.ip,
-    stack: err.stack
+    stack: err.stack,
+    ...(err.code && { code: err.code }),
+    ...(err.hint && { hint: err.hint })
   });
 
   // Default error status and message
@@ -24,18 +27,26 @@ export const errorHandler = (err, req, res, next) => {
     statusCode = 400;
     message = 'Validation Error';
     errors = err.errors;
-  } else if (err.name === 'UnauthorizedError') {
+  } else if (err.name === 'UnauthorizedError' || err.code === 'PGRST301') {
     statusCode = 401;
     message = 'Unauthorized';
   } else if (err.name === 'ForbiddenError') {
     statusCode = 403;
     message = 'Forbidden';
-  } else if (err.name === 'NotFoundError') {
+  } else if (err.name === 'NotFoundError' || err.code === '404') {
     statusCode = 404;
     message = 'Not Found';
   } else if (err.type === 'entity.parse.failed') {
     statusCode = 400;
     message = 'Invalid JSON in request body';
+  } else if (err.code === 'PGRST116') {
+    // Supabase RPC function not found
+    statusCode = 500;
+    message = 'Database function not found';
+  } else if (err.code?.startsWith('PGRST')) {
+    // Other Supabase errors
+    statusCode = 500;
+    message = 'Database operation failed';
   }
 
   // Don't expose internal errors in production
@@ -44,14 +55,6 @@ export const errorHandler = (err, req, res, next) => {
     errors = null;
   }
 
-  // Send error response
-  res.status(statusCode).json({
-    success: false,
-    error: {
-      message,
-      statusCode,
-      ...(errors && { errors }),
-      ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
-    }
-  });
+  // Send error response using standard format
+  res.status(statusCode).json(errorResponse(message, statusCode, errors));
 };

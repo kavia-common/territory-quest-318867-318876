@@ -1,25 +1,51 @@
 import express from 'express';
+import Joi from 'joi';
 import { authenticate } from '../middleware/auth.js';
-import { body, query, param, validationResult } from 'express-validator';
 import { callRPC } from '../utils/supabase.js';
 import logger from '../utils/logger.js';
 
 const router = express.Router();
 
-// Validation helper
-const validate = (req, res, next) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
-      success: false,
-      error: {
-        message: 'Validation failed',
-        statusCode: 400,
-        errors: errors.array()
-      }
-    });
-  }
-  next();
+// Validation utility
+const validate = (schema) => {
+  return (req, res, next) => {
+    const validationOptions = {
+      abortEarly: false,
+      allowUnknown: true,
+      stripUnknown: true
+    };
+    
+    const toValidate = {};
+    if (schema.body) toValidate.body = req.body;
+    if (schema.query) toValidate.query = req.query;
+    if (schema.params) toValidate.params = req.params;
+    
+    const schemaToValidate = Joi.object(schema);
+    const { error, value } = schemaToValidate.validate(toValidate, validationOptions);
+    
+    if (error) {
+      const errors = error.details.map(detail => ({
+        field: detail.path.join('.'),
+        message: detail.message,
+        type: detail.type
+      }));
+      
+      return res.status(400).json({
+        success: false,
+        error: {
+          message: 'Validation failed',
+          statusCode: 400,
+          errors
+        }
+      });
+    }
+    
+    if (value.body) req.body = value.body;
+    if (value.query) req.query = value.query;
+    if (value.params) req.params = value.params;
+    
+    next();
+  };
 };
 
 // PUBLIC_INTERFACE
@@ -29,13 +55,14 @@ const validate = (req, res, next) => {
  * Query params: min_lat, min_lon, max_lat, max_lon
  */
 router.get('/bounds',
-  [
-    query('min_lat').isFloat({ min: -90, max: 90 }).withMessage('Invalid min_lat'),
-    query('min_lon').isFloat({ min: -180, max: 180 }).withMessage('Invalid min_lon'),
-    query('max_lat').isFloat({ min: -90, max: 90 }).withMessage('Invalid max_lat'),
-    query('max_lon').isFloat({ min: -180, max: 180 }).withMessage('Invalid max_lon'),
-    validate
-  ],
+  validate({
+    query: Joi.object({
+      min_lat: Joi.number().min(-90).max(90).required(),
+      min_lon: Joi.number().min(-180).max(180).required(),
+      max_lat: Joi.number().min(-90).max(90).required(),
+      max_lon: Joi.number().min(-180).max(180).required()
+    })
+  }),
   async (req, res, next) => {
     try {
       const { min_lat, min_lon, max_lat, max_lon } = req.query;
@@ -65,12 +92,13 @@ router.get('/bounds',
  * Query params: lat, lon, radius_meters
  */
 router.get('/nearby',
-  [
-    query('lat').isFloat({ min: -90, max: 90 }).withMessage('Invalid latitude'),
-    query('lon').isFloat({ min: -180, max: 180 }).withMessage('Invalid longitude'),
-    query('radius_meters').isFloat({ min: 1, max: 10000 }).withMessage('Radius must be between 1 and 10000 meters'),
-    validate
-  ],
+  validate({
+    query: Joi.object({
+      lat: Joi.number().min(-90).max(90).required(),
+      lon: Joi.number().min(-180).max(180).required(),
+      radius_meters: Joi.number().min(1).max(10000).required()
+    })
+  }),
   async (req, res, next) => {
     try {
       const { lat, lon, radius_meters } = req.query;
@@ -101,11 +129,12 @@ router.get('/nearby',
  */
 router.post('/capture',
   authenticate,
-  [
-    body('lat').isFloat({ min: -90, max: 90 }).withMessage('Invalid latitude'),
-    body('lon').isFloat({ min: -180, max: 180 }).withMessage('Invalid longitude'),
-    validate
-  ],
+  validate({
+    body: Joi.object({
+      lat: Joi.number().min(-90).max(90).required(),
+      lon: Joi.number().min(-180).max(180).required()
+    })
+  }),
   async (req, res, next) => {
     try {
       const { lat, lon } = req.body;
@@ -137,11 +166,14 @@ router.post('/capture',
  */
 router.post('/:zoneId/attack',
   authenticate,
-  [
-    param('zoneId').notEmpty().withMessage('Zone ID is required'),
-    body('attack_power').optional().isInt({ min: 1, max: 50 }).withMessage('Attack power must be between 1 and 50'),
-    validate
-  ],
+  validate({
+    params: Joi.object({
+      zoneId: Joi.string().pattern(/^-?\d+_-?\d+$/).required()
+    }),
+    body: Joi.object({
+      attack_power: Joi.number().integer().min(1).max(50).default(10)
+    })
+  }),
   async (req, res, next) => {
     try {
       const { zoneId } = req.params;
@@ -174,11 +206,14 @@ router.post('/:zoneId/attack',
  */
 router.post('/:zoneId/defend',
   authenticate,
-  [
-    param('zoneId').notEmpty().withMessage('Zone ID is required'),
-    body('defense_boost').optional().isInt({ min: 1, max: 30 }).withMessage('Defense boost must be between 1 and 30'),
-    validate
-  ],
+  validate({
+    params: Joi.object({
+      zoneId: Joi.string().pattern(/^-?\d+_-?\d+$/).required()
+    }),
+    body: Joi.object({
+      defense_boost: Joi.number().integer().min(1).max(30).default(10)
+    })
+  }),
   async (req, res, next) => {
     try {
       const { zoneId } = req.params;
@@ -209,12 +244,15 @@ router.post('/:zoneId/defend',
  * Query params: lat, lon
  */
 router.get('/:zoneId/attack-range',
-  [
-    param('zoneId').notEmpty().withMessage('Zone ID is required'),
-    query('lat').isFloat({ min: -90, max: 90 }).withMessage('Invalid latitude'),
-    query('lon').isFloat({ min: -180, max: 180 }).withMessage('Invalid longitude'),
-    validate
-  ],
+  validate({
+    params: Joi.object({
+      zoneId: Joi.string().pattern(/^-?\d+_-?\d+$/).required()
+    }),
+    query: Joi.object({
+      lat: Joi.number().min(-90).max(90).required(),
+      lon: Joi.number().min(-180).max(180).required()
+    })
+  }),
   async (req, res, next) => {
     try {
       const { zoneId } = req.params;

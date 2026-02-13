@@ -1,25 +1,51 @@
 import express from 'express';
+import Joi from 'joi';
 import { authenticate } from '../middleware/auth.js';
-import { body, validationResult } from 'express-validator';
 import { callRPC } from '../utils/supabase.js';
 import logger from '../utils/logger.js';
 
 const router = express.Router();
 
-// Validation helper
-const validate = (req, res, next) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
-      success: false,
-      error: {
-        message: 'Validation failed',
-        statusCode: 400,
-        errors: errors.array()
-      }
-    });
-  }
-  next();
+// Validation utility
+const validate = (schema) => {
+  return (req, res, next) => {
+    const validationOptions = {
+      abortEarly: false,
+      allowUnknown: true,
+      stripUnknown: true
+    };
+    
+    const toValidate = {};
+    if (schema.body) toValidate.body = req.body;
+    if (schema.query) toValidate.query = req.query;
+    if (schema.params) toValidate.params = req.params;
+    
+    const schemaToValidate = Joi.object(schema);
+    const { error, value } = schemaToValidate.validate(toValidate, validationOptions);
+    
+    if (error) {
+      const errors = error.details.map(detail => ({
+        field: detail.path.join('.'),
+        message: detail.message,
+        type: detail.type
+      }));
+      
+      return res.status(400).json({
+        success: false,
+        error: {
+          message: 'Validation failed',
+          statusCode: 400,
+          errors
+        }
+      });
+    }
+    
+    if (value.body) req.body = value.body;
+    if (value.query) req.query = value.query;
+    if (value.params) req.params = value.params;
+    
+    next();
+  };
 };
 
 // PUBLIC_INTERFACE
@@ -34,9 +60,12 @@ router.get('/stats', authenticate, async (req, res, next) => {
     
     const stats = await callRPC('get_player_stats', { user_id: userId });
 
+    // Handle array response from RPC
+    const playerStats = Array.isArray(stats) ? stats[0] : stats;
+
     res.json({
       success: true,
-      data: stats
+      data: playerStats
     });
   } catch (error) {
     logger.error('Error fetching player stats:', error);
@@ -53,11 +82,12 @@ router.get('/stats', authenticate, async (req, res, next) => {
  */
 router.post('/location',
   authenticate,
-  [
-    body('lat').isFloat({ min: -90, max: 90 }).withMessage('Invalid latitude'),
-    body('lon').isFloat({ min: -180, max: 180 }).withMessage('Invalid longitude'),
-    validate
-  ],
+  validate({
+    body: Joi.object({
+      lat: Joi.number().min(-90).max(90).required(),
+      lon: Joi.number().min(-180).max(180).required()
+    })
+  }),
   async (req, res, next) => {
     try {
       const { lat, lon } = req.body;
@@ -84,26 +114,35 @@ router.post('/location',
 /**
  * GET /api/player/activity
  * Get player's activity log
+ * Query params: limit (optional)
  * Requires authentication
  */
-router.get('/activity', authenticate, async (req, res, next) => {
-  try {
-    const userId = req.userId;
-    const limit = parseInt(req.query.limit) || 50;
+router.get('/activity',
+  authenticate,
+  validate({
+    query: Joi.object({
+      limit: Joi.number().integer().min(1).max(200).default(50)
+    })
+  }),
+  async (req, res, next) => {
+    try {
+      const userId = req.userId;
+      const limit = parseInt(req.query.limit) || 50;
 
-    const activities = await callRPC('get_user_activity_log', {
-      p_user_id: userId,
-      limit_count: limit
-    });
+      const activities = await callRPC('get_user_activity_log', {
+        p_user_id: userId,
+        limit_count: limit
+      });
 
-    res.json({
-      success: true,
-      data: activities
-    });
-  } catch (error) {
-    logger.error('Error fetching activity log:', error);
-    next(error);
+      res.json({
+        success: true,
+        data: activities
+      });
+    } catch (error) {
+      logger.error('Error fetching activity log:', error);
+      next(error);
+    }
   }
-});
+);
 
 export default router;

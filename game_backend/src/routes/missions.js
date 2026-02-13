@@ -1,25 +1,51 @@
 import express from 'express';
+import Joi from 'joi';
 import { authenticate } from '../middleware/auth.js';
-import { query, validationResult } from 'express-validator';
 import { callRPC } from '../utils/supabase.js';
 import logger from '../utils/logger.js';
 
 const router = express.Router();
 
-// Validation helper
-const validate = (req, res, next) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
-      success: false,
-      error: {
-        message: 'Validation failed',
-        statusCode: 400,
-        errors: errors.array()
-      }
-    });
-  }
-  next();
+// Validation utility
+const validate = (schema) => {
+  return (req, res, next) => {
+    const validationOptions = {
+      abortEarly: false,
+      allowUnknown: true,
+      stripUnknown: true
+    };
+    
+    const toValidate = {};
+    if (schema.body) toValidate.body = req.body;
+    if (schema.query) toValidate.query = req.query;
+    if (schema.params) toValidate.params = req.params;
+    
+    const schemaToValidate = Joi.object(schema);
+    const { error, value } = schemaToValidate.validate(toValidate, validationOptions);
+    
+    if (error) {
+      const errors = error.details.map(detail => ({
+        field: detail.path.join('.'),
+        message: detail.message,
+        type: detail.type
+      }));
+      
+      return res.status(400).json({
+        success: false,
+        error: {
+          message: 'Validation failed',
+          statusCode: 400,
+          errors
+        }
+      });
+    }
+    
+    if (value.body) req.body = value.body;
+    if (value.query) req.query = value.query;
+    if (value.params) req.params = value.params;
+    
+    next();
+  };
 };
 
 // PUBLIC_INTERFACE
@@ -31,10 +57,11 @@ const validate = (req, res, next) => {
  */
 router.get('/',
   authenticate,
-  [
-    query('status').optional().isIn(['active', 'completed', 'expired']).withMessage('Invalid status'),
-    validate
-  ],
+  validate({
+    query: Joi.object({
+      status: Joi.string().valid('active', 'completed', 'expired').optional()
+    })
+  }),
   async (req, res, next) => {
     try {
       const userId = req.userId;

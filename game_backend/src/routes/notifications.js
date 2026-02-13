@@ -1,25 +1,51 @@
 import express from 'express';
+import Joi from 'joi';
 import { authenticate } from '../middleware/auth.js';
-import { body, query, param, validationResult } from 'express-validator';
 import { callRPC } from '../utils/supabase.js';
 import logger from '../utils/logger.js';
 
 const router = express.Router();
 
-// Validation helper
-const validate = (req, res, next) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
-      success: false,
-      error: {
-        message: 'Validation failed',
-        statusCode: 400,
-        errors: errors.array()
-      }
-    });
-  }
-  next();
+// Validation utility
+const validate = (schema) => {
+  return (req, res, next) => {
+    const validationOptions = {
+      abortEarly: false,
+      allowUnknown: true,
+      stripUnknown: true
+    };
+    
+    const toValidate = {};
+    if (schema.body) toValidate.body = req.body;
+    if (schema.query) toValidate.query = req.query;
+    if (schema.params) toValidate.params = req.params;
+    
+    const schemaToValidate = Joi.object(schema);
+    const { error, value } = schemaToValidate.validate(toValidate, validationOptions);
+    
+    if (error) {
+      const errors = error.details.map(detail => ({
+        field: detail.path.join('.'),
+        message: detail.message,
+        type: detail.type
+      }));
+      
+      return res.status(400).json({
+        success: false,
+        error: {
+          message: 'Validation failed',
+          statusCode: 400,
+          errors
+        }
+      });
+    }
+    
+    if (value.body) req.body = value.body;
+    if (value.query) req.query = value.query;
+    if (value.params) req.params = value.params;
+    
+    next();
+  };
 };
 
 // PUBLIC_INTERFACE
@@ -31,15 +57,16 @@ const validate = (req, res, next) => {
  */
 router.get('/',
   authenticate,
-  [
-    query('include_read').optional().isBoolean().withMessage('include_read must be boolean'),
-    query('limit').optional().isInt({ min: 1, max: 200 }).withMessage('Limit must be between 1 and 200'),
-    validate
-  ],
+  validate({
+    query: Joi.object({
+      include_read: Joi.boolean().default(false),
+      limit: Joi.number().integer().min(1).max(200).default(50)
+    })
+  }),
   async (req, res, next) => {
     try {
       const userId = req.userId;
-      const includeRead = req.query.include_read === 'true';
+      const includeRead = req.query.include_read === true || req.query.include_read === 'true';
       const limit = parseInt(req.query.limit) || 50;
 
       const notifications = await callRPC('get_user_notifications', {
@@ -67,10 +94,11 @@ router.get('/',
  */
 router.patch('/:notificationId/read',
   authenticate,
-  [
-    param('notificationId').isUUID().withMessage('Invalid notification ID'),
-    validate
-  ],
+  validate({
+    params: Joi.object({
+      notificationId: Joi.string().uuid().required()
+    })
+  }),
   async (req, res, next) => {
     try {
       const userId = req.userId;
