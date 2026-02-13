@@ -2,6 +2,7 @@ import express from 'express';
 import Joi from 'joi';
 import { authenticate } from '../middleware/auth.js';
 import { callRPC } from '../utils/supabase.js';
+import { readLimiter, writeLimiter } from '../middleware/rateLimiting.js';
 import logger from '../utils/logger.js';
 
 const router = express.Router();
@@ -56,6 +57,7 @@ const validate = (schema) => {
  * Requires authentication
  */
 router.get('/',
+  readLimiter,
   authenticate,
   validate({
     query: Joi.object({
@@ -93,6 +95,7 @@ router.get('/',
  * Requires authentication
  */
 router.patch('/:notificationId/read',
+  writeLimiter,
   authenticate,
   validate({
     params: Joi.object({
@@ -126,7 +129,7 @@ router.patch('/:notificationId/read',
  * Mark all notifications as read
  * Requires authentication
  */
-router.patch('/read-all', authenticate, async (req, res, next) => {
+router.patch('/read-all', writeLimiter, authenticate, async (req, res, next) => {
   try {
     const userId = req.userId;
 

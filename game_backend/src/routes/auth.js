@@ -3,6 +3,7 @@ import Joi from 'joi';
 import { authenticate, optionalAuth } from '../middleware/auth.js';
 import { getSupabaseClient, callRPC } from '../utils/supabase.js';
 import { validate, successResponse, errorResponse } from '../utils/validation.js';
+import { authLimiter, writeLimiter, readLimiter } from '../middleware/rateLimiting.js';
 import logger from '../utils/logger.js';
 
 const router = express.Router();
@@ -52,7 +53,7 @@ const updateProfileSchema = {
  * @body {string} [color_hex] - User's territory color (default: #3b82f6)
  * @returns {object} User profile and initial missions
  */
-router.post('/signup', authenticate, validate(signupSchema), async (req, res, next) => {
+router.post('/signup', authLimiter, authenticate, validate(signupSchema), async (req, res, next) => {
   try {
     const { username, color_hex = '#3b82f6' } = req.body;
     const userId = req.userId;
@@ -137,7 +138,7 @@ router.post('/signup', authenticate, validate(signupSchema), async (req, res, ne
  * 
  * @returns {object} User profile with stats, missions, and notifications count
  */
-router.get('/me', authenticate, async (req, res, next) => {
+router.get('/me', readLimiter, authenticate, async (req, res, next) => {
   try {
     const userId = req.userId;
 
@@ -189,7 +190,7 @@ router.get('/me', authenticate, async (req, res, next) => {
  * @body {string} [color_hex] - New territory color
  * @returns {object} Updated user profile
  */
-router.put('/profile', authenticate, validate(updateProfileSchema), async (req, res, next) => {
+router.put('/profile', writeLimiter, authenticate, validate(updateProfileSchema), async (req, res, next) => {
   try {
     const userId = req.userId;
     const updates = {};
@@ -252,7 +253,7 @@ router.put('/profile', authenticate, validate(updateProfileSchema), async (req, 
  * @param {string} username - Username to check
  * @returns {object} Availability status
  */
-router.get('/check-username/:username', optionalAuth, async (req, res, next) => {
+router.get('/check-username/:username', readLimiter, optionalAuth, async (req, res, next) => {
   try {
     const { username } = req.params;
 

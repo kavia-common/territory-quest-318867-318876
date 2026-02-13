@@ -7,11 +7,39 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "test": "echo \"Tests not yet configured. See src/middleware/__tests__/auth.test.js for test examples.\" && exit 0",
-    "test:watch": "echo \"Test watch mode not configured\"",
+    "test": "NODE_ENV=test node --experimental-vm-modules node_modules/jest/bin/jest.js --detectOpenHandles --forceExit",
+    "test:watch": "NODE_ENV=test node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
+    "test:coverage": "NODE_ENV=test node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage --detectOpenHandles --forceExit",
     "validate": "node -c src/server.js && node -c src/middleware/auth.js",
     "generate:openapi": "node scripts/generate_openapi.js",
-    "prestart": "npm run generate:openapi"
+    "prestart": "npm run generate:openapi",
+    "lint": "echo 'Linting not configured yet'",
+    "lint:fix": "echo 'Linting not configured yet'"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "transform": {},
+    "extensionsToTreatAsEsm": [".js"],
+    "moduleNameMapper": {
+      "^(\\.{1,2}/.*)\\.js$": "$1"
+    },
+    "testMatch": [
+      "**/__tests__/**/*.test.js",
+      "**/*.test.js"
+    ],
+    "collectCoverageFrom": [
+      "src/**/*.js",
+      "!src/server.js",
+      "!**/node_modules/**"
+    ],
+    "coverageThreshold": {
+      "global": {
+        "branches": 50,
+        "functions": 50,
+        "lines": 50,
+        "statements": 50
+      }
+    }
   },
   "keywords": [
     "game",
@@ -35,6 +63,8 @@
     "ws": "^8.17.1"
   },
   "devDependencies": {
-    "nodemon": "^3.1.4"
+    "jest": "^29.7.0",
+    "nodemon": "^3.1.4",
+    "supertest": "^6.3.3"
   }
 }

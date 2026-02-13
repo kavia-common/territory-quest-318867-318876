@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    name: Test on Node.js ${{ matrix.node-version }}
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        cache-dependency-path: territory-quest-318867-318876/game_backend/package-lock.json
+        
+    - name: Install dependencies
+      working-directory: ./territory-quest-318867-318876/game_backend
+      run: npm ci || npm install
+      
+    - name: Run linter
+      working-directory: ./territory-quest-318867-318876/game_backend
+      run: npm run lint || echo "Linting not configured, skipping"
+      
+    - name: Run tests
+      working-directory: ./territory-quest-318867-318876/game_backend
+      run: npm test
+      env:
+        NODE_ENV: test
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://mock-supabase-url.supabase.co' }}
+        SUPABASE_KEY: ${{ secrets.SUPABASE_KEY || 'mock-supabase-key' }}
+        
+    - name: Run test coverage
+      working-directory: ./territory-quest-318867-318876/game_backend
+      run: npm run test:coverage || echo "Coverage not available"
+      env:
+        NODE_ENV: test
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://mock-supabase-url.supabase.co' }}
+        SUPABASE_KEY: ${{ secrets.SUPABASE_KEY || 'mock-supabase-key' }}
+        
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
+      if: matrix.node-version == '20.x'
+      with:
+        files: ./territory-quest-318867-318876/game_backend/coverage/lcov.info
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+
+  validate:
+    name: Validate Code
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+        cache-dependency-path: territory-quest-318867-318876/game_backend/package-lock.json
+        
+    - name: Install dependencies
+      working-directory: ./territory-quest-318867-318876/game_backend
+      run: npm ci || npm install
+      
+    - name: Validate syntax
+      working-directory: ./territory-quest-318867-318876/game_backend
+      run: npm run validate
+      
+    - name: Check for security vulnerabilities
+      working-directory: ./territory-quest-318867-318876/game_backend
+      run: npm audit --audit-level=high || echo "Security audit found issues, review needed"

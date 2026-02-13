@@ -2,6 +2,7 @@ import express from 'express';
 import Joi from 'joi';
 import { authenticate } from '../middleware/auth.js';
 import { callRPC } from '../utils/supabase.js';
+import { readLimiter, writeLimiter } from '../middleware/rateLimiting.js';
 import logger from '../utils/logger.js';
 
 const router = express.Router();
@@ -56,6 +57,7 @@ const validate = (schema) => {
  * Requires authentication
  */
 router.get('/',
+  readLimiter,
   authenticate,
   validate({
     query: Joi.object({
@@ -89,7 +91,7 @@ router.get('/',
  * Create initial missions for new user
  * Requires authentication
  */
-router.post('/initialize', authenticate, async (req, res, next) => {
+router.post('/initialize', writeLimiter, authenticate, async (req, res, next) => {
   try {
     const userId = req.userId;
 

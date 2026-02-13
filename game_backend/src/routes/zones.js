@@ -2,6 +2,7 @@ import express from 'express';
 import Joi from 'joi';
 import { authenticate } from '../middleware/auth.js';
 import { callRPC } from '../utils/supabase.js';
+import { readLimiter, writeLimiter } from '../middleware/rateLimiting.js';
 import logger from '../utils/logger.js';
 
 const router = express.Router();
@@ -55,6 +56,7 @@ const validate = (schema) => {
  * Query params: min_lat, min_lon, max_lat, max_lon
  */
 router.get('/bounds',
+  readLimiter,
   validate({
     query: Joi.object({
       min_lat: Joi.number().min(-90).max(90).required(),
@@ -92,6 +94,7 @@ router.get('/bounds',
  * Query params: lat, lon, radius_meters
  */
 router.get('/nearby',
+  readLimiter,
   validate({
     query: Joi.object({
       lat: Joi.number().min(-90).max(90).required(),
@@ -128,6 +131,7 @@ router.get('/nearby',
  * Requires authentication
  */
 router.post('/capture',
+  writeLimiter,
   authenticate,
   validate({
     body: Joi.object({
@@ -165,6 +169,7 @@ router.post('/capture',
  * Requires authentication
  */
 router.post('/:zoneId/attack',
+  writeLimiter,
   authenticate,
   validate({
     params: Joi.object({
@@ -205,6 +210,7 @@ router.post('/:zoneId/attack',
  * Requires authentication
  */
 router.post('/:zoneId/defend',
+  writeLimiter,
   authenticate,
   validate({
     params: Joi.object({
@@ -244,6 +250,7 @@ router.post('/:zoneId/defend',
  * Query params: lat, lon
  */
 router.get('/:zoneId/attack-range',
+  readLimiter,
   validate({
     params: Joi.object({
       zoneId: Joi.string().pattern(/^-?\d+_-?\d+$/).required()
