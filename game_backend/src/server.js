@@ -7,9 +7,11 @@ import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import { errorHandler } from './middleware/errorHandler.js';
 import { requestLogger } from './middleware/requestLogger.js';
+import { requestTimeout } from './middleware/requestTimeout.js';
 import { notFoundHandler } from './middleware/notFoundHandler.js';
 import logger from './utils/logger.js';
 import routes from './routes/index.js';
+import healthRoutes from './routes/health.js';
 import { initializeWebSocket } from './websocket/index.js';
 
 // Load environment variables
@@ -75,23 +77,15 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Request logging
 app.use(requestLogger);
 
+// Request timeout (configurable via environment variable, default 30s)
+const REQUEST_TIMEOUT_MS = parseInt(process.env.REQUEST_TIMEOUT_MS || '30000');
+app.use(requestTimeout(REQUEST_TIMEOUT_MS));
+
 // ============================================
-// HEALTH CHECK ENDPOINT
+// HEALTH CHECK ENDPOINTS
 // ============================================
 
-// PUBLIC_INTERFACE
-app.get('/health', (req, res) => {
-  /**
-   * Health check endpoint
-   * Returns the health status of the backend service
-   */
-  res.json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    environment: NODE_ENV
-  });
-});
+app.use('/', healthRoutes);
 
 // ============================================
 // API ROUTES
@@ -130,32 +124,85 @@ httpServer.listen(PORT, process.env.HOST || '0.0.0.0', () => {
   logger.info(`🌐 HTTP Server: http://${process.env.HOST || '0.0.0.0'}:${PORT}`);
   logger.info(`🔌 WebSocket Server: ws://${process.env.HOST || '0.0.0.0'}:${PORT}/ws`);
   logger.info(`✅ Health check: http://${process.env.HOST || '0.0.0.0'}:${PORT}/health`);
+  logger.info(`🏥 Readiness check: http://${process.env.HOST || '0.0.0.0'}:${PORT}/healthz`);
 });
 
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  logger.info('SIGTERM signal received: closing HTTP server');
-  httpServer.close(() => {
-    logger.info('HTTP server closed');
-    process.exit(0);
-  });
-});
+// ============================================
+// GRACEFUL SHUTDOWN HANDLING
+// ============================================
 
-process.on('SIGINT', () => {
-  logger.info('SIGINT signal received: closing HTTP server');
-  httpServer.close(() => {
+let isShuttingDown = false;
+
+/**
+ * Graceful shutdown handler
+ * Closes HTTP server and WebSocket connections cleanly
+ */
+const gracefulShutdown = (signal) => {
+  if (isShuttingDown) {
+    logger.warn(`${signal} received again during shutdown, forcing exit...`);
+    process.exit(1);
+  }
+
+  isShuttingDown = true;
+  logger.info(`${signal} signal received: starting graceful shutdown`);
+
+  // Stop accepting new connections
+  httpServer.close((err) => {
+    if (err) {
+      logger.error('Error closing HTTP server:', err);
+      process.exit(1);
+    }
     logger.info('HTTP server closed');
-    process.exit(0);
   });
-});
+
+  // Close all WebSocket connections
+  logger.info('Closing WebSocket connections...');
+  wss.clients.forEach((client) => {
+    client.close(1000, 'Server shutting down');
+  });
+
+  // Close WebSocket server
+  wss.close(() => {
+    logger.info('WebSocket server closed');
+  });
+
+  // Set a timeout to force shutdown if graceful shutdown takes too long
+  const shutdownTimeout = setTimeout(() => {
+    logger.error('Graceful shutdown timeout, forcing exit');
+    process.exit(1);
+  }, 10000); // 10 second timeout
+
+  // Wait for all connections to close
+  const checkConnections = setInterval(() => {
+    if (wss.clients.size === 0) {
+      clearInterval(checkConnections);
+      clearTimeout(shutdownTimeout);
+      logger.info('All connections closed, exiting');
+      process.exit(0);
+    } else {
+      logger.info(`Waiting for ${wss.clients.size} WebSocket connections to close...`);
+    }
+  }, 1000);
+};
+
+// Handle SIGTERM (e.g., from Docker, Kubernetes)
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+
+// Handle SIGINT (e.g., Ctrl+C)
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (reason, promise) => {
   logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  // In production, you might want to trigger graceful shutdown here
+  if (process.env.NODE_ENV === 'production') {
+    gracefulShutdown('UNHANDLED_REJECTION');
+  }
 });
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (error) => {
   logger.error('Uncaught Exception:', error);
-  process.exit(1);
+  // Always exit on uncaught exceptions after logging
+  gracefulShutdown('UNCAUGHT_EXCEPTION');
 });
