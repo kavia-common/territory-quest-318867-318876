@@ -28,17 +28,13 @@ CREATE POLICY "Users can insert their own profile"
     WITH CHECK (auth.uid() = id);
 
 -- Policy: Users can update only their own profile
+-- Note: Field-level validation is handled by triggers (see below)
 DROP POLICY IF EXISTS "Users can update their own profile" ON users;
 CREATE POLICY "Users can update their own profile"
     ON users FOR UPDATE
     TO authenticated
     USING (auth.uid() = id)
-    WITH CHECK (
-        auth.uid() = id
-        -- Prevent direct manipulation of sensitive fields
-        AND (OLD.total_ep = NEW.total_ep OR NEW.total_ep >= OLD.total_ep)
-        AND (OLD.respect_level = NEW.respect_level OR NEW.respect_level >= OLD.respect_level)
-    );
+    WITH CHECK (auth.uid() = id);
 
 -- Policy: Users cannot delete their own profile (handled by auth cascade)
 DROP POLICY IF EXISTS "Users cannot delete profiles" ON users;
@@ -131,21 +127,13 @@ CREATE POLICY "Notifications created via system only"
     WITH CHECK (false); -- Will be overridden by SECURITY DEFINER functions
 
 -- Policy: Users can mark their own notifications as read
+-- Note: Field-level validation is handled by triggers (see below)
 DROP POLICY IF EXISTS "Users can mark notifications as read" ON notifications;
 CREATE POLICY "Users can mark notifications as read"
     ON notifications FOR UPDATE
     TO authenticated
     USING (user_id = auth.uid())
-    WITH CHECK (
-        user_id = auth.uid()
-        AND OLD.read = false
-        AND NEW.read = true
-        -- Prevent modification of other fields
-        AND OLD.notification_type = NEW.notification_type
-        AND OLD.title = NEW.title
-        AND OLD.message = NEW.message
-        AND OLD.data IS NOT DISTINCT FROM NEW.data
-    );
+    WITH CHECK (user_id = auth.uid());
 
 -- Policy: Users can delete their own notifications (to clear old ones)
 DROP POLICY IF EXISTS "Users can delete their own notifications" ON notifications;
@@ -183,6 +171,63 @@ DROP POLICY IF EXISTS "Activity log cannot be deleted" ON activity_log;
 CREATE POLICY "Activity log cannot be deleted"
     ON activity_log FOR DELETE
     USING (false);
+
+-- ============================================
+-- TRIGGERS FOR FIELD-LEVEL VALIDATION
+-- ============================================
+
+-- Trigger function: Prevent manipulation of sensitive user fields
+CREATE OR REPLACE FUNCTION validate_user_sensitive_fields()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Prevent decreasing total_ep (can only stay same or increase)
+    IF NEW.total_ep < OLD.total_ep THEN
+        RAISE EXCEPTION 'Cannot decrease total_ep';
+    END IF;
+    
+    -- Prevent decreasing respect_level (can only stay same or increase)
+    IF NEW.respect_level < OLD.respect_level THEN
+        RAISE EXCEPTION 'Cannot decrease respect_level';
+    END IF;
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS validate_user_fields_trigger ON users;
+CREATE TRIGGER validate_user_fields_trigger
+    BEFORE UPDATE ON users
+    FOR EACH ROW
+    EXECUTE FUNCTION validate_user_sensitive_fields();
+
+-- Trigger function: Validate notification updates (only allow marking as read)
+CREATE OR REPLACE FUNCTION validate_notification_updates()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Only allow marking as read, not unread
+    IF OLD.read = false AND NEW.read = true THEN
+        -- Ensure no other fields are modified
+        IF OLD.notification_type != NEW.notification_type
+           OR OLD.title != NEW.title
+           OR OLD.message != NEW.message
+           OR OLD.data IS DISTINCT FROM NEW.data THEN
+            RAISE EXCEPTION 'Can only mark notifications as read, cannot modify other fields';
+        END IF;
+    ELSIF OLD.read = true AND NEW.read = false THEN
+        RAISE EXCEPTION 'Cannot mark notifications as unread';
+    ELSIF OLD.read = NEW.read THEN
+        RAISE EXCEPTION 'Notification already in this state';
+    END IF;
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS validate_notification_updates_trigger ON notifications;
+CREATE TRIGGER validate_notification_updates_trigger
+    BEFORE UPDATE ON notifications
+    FOR EACH ROW
+    EXECUTE FUNCTION validate_notification_updates();
 
 -- ============================================
 -- ADDITIONAL SECURITY FUNCTIONS
