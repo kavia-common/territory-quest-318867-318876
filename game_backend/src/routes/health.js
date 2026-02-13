@@ -28,7 +28,7 @@ router.get('/healthz', async (req, res) => {
   try {
     const supabase = getSupabaseClient();
     const { data, error } = await supabase
-      .from('players')
+      .from('users')
       .select('id')
       .limit(1);
 
