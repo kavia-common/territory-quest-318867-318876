@@ -4,6 +4,7 @@ import playerRoutes from './player.js';
 import missionsRoutes from './missions.js';
 import notificationsRoutes from './notifications.js';
 import leaderboardRoutes from './leaderboard.js';
+import utilsRoutes from './utils.js';
 import { getConnectionStats } from '../websocket/index.js';
 
 const router = express.Router();
@@ -20,6 +21,7 @@ router.get('/', (req, res) => {
       missions: '/api/missions',
       notifications: '/api/notifications',
       leaderboard: '/api/leaderboard',
+      utils: '/api/utils',
       websocket_stats: '/api/ws/stats'
     },
     websocket: {
@@ -60,5 +62,6 @@ router.use('/player', playerRoutes);
 router.use('/missions', missionsRoutes);
 router.use('/notifications', notificationsRoutes);
 router.use('/leaderboard', leaderboardRoutes);
+router.use('/utils', utilsRoutes);
 
 export default router;

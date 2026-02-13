@@ -124,6 +124,7 @@ app.get('/', (req, res) => {
         missions: `${baseUrl}/api/missions`,
         notifications: `${baseUrl}/api/notifications`,
         leaderboard: `${baseUrl}/api/leaderboard`,
+        utils: `${baseUrl}/api/utils`,
         websocket_stats: `${baseUrl}/api/ws/stats`
       }
     },
