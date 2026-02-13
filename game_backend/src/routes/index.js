@@ -1,4 +1,6 @@
 import express from 'express';
+import authRoutes from './auth.js';
+import groupsRoutes from './groups.js';
 import zonesRoutes from './zones.js';
 import playerRoutes from './player.js';
 import missionsRoutes from './missions.js';
@@ -16,6 +18,8 @@ router.get('/', (req, res) => {
     version: '1.0.0',
     description: 'Backend API for territory capture game',
     endpoints: {
+      auth: '/api/auth',
+      groups: '/api/groups',
       zones: '/api/zones',
       player: '/api/player',
       missions: '/api/missions',
@@ -57,6 +61,8 @@ router.get('/ws/stats', (req, res) => {
 });
 
 // Mount route modules
+router.use('/auth', authRoutes);
+router.use('/groups', groupsRoutes);
 router.use('/zones', zonesRoutes);
 router.use('/player', playerRoutes);
 router.use('/missions', missionsRoutes);

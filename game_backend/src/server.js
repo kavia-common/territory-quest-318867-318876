@@ -119,6 +119,8 @@ app.get('/', (req, res) => {
       },
       api: {
         root: `${baseUrl}/api`,
+        auth: `${baseUrl}/api/auth`,
+        groups: `${baseUrl}/api/groups`,
         zones: `${baseUrl}/api/zones`,
         player: `${baseUrl}/api/player`,
         missions: `${baseUrl}/api/missions`,
