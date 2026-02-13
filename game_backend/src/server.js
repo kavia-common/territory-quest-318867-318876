@@ -88,6 +88,54 @@ const REQUEST_TIMEOUT_MS = parseInt(process.env.REQUEST_TIMEOUT_MS || '30000');
 app.use(requestTimeout(REQUEST_TIMEOUT_MS));
 
 // ============================================
+// ROOT ENDPOINT
+// ============================================
+
+// PUBLIC_INTERFACE
+/**
+ * GET /
+ * Root endpoint providing API information and navigation
+ * Returns links to health checks, documentation, and API endpoints
+ */
+app.get('/', (req, res) => {
+  const protocol = req.protocol;
+  const host = req.get('host');
+  const baseUrl = `${protocol}://${host}`;
+  
+  res.json({
+    name: 'TurfRun Game Backend',
+    version: '1.0.0',
+    description: 'Backend API for territory capture game - walk, jog, or cycle to capture real-world map zones',
+    status: 'operational',
+    endpoints: {
+      health: {
+        liveness: `${baseUrl}/health`,
+        readiness: `${baseUrl}/healthz`
+      },
+      documentation: {
+        swagger: `${baseUrl}/api/docs`,
+        openapi: `${baseUrl}/api/openapi.json`,
+        websocket: `${baseUrl}/ws (see /api/docs for details)`
+      },
+      api: {
+        root: `${baseUrl}/api`,
+        zones: `${baseUrl}/api/zones`,
+        player: `${baseUrl}/api/player`,
+        missions: `${baseUrl}/api/missions`,
+        notifications: `${baseUrl}/api/notifications`,
+        leaderboard: `${baseUrl}/api/leaderboard`,
+        websocket_stats: `${baseUrl}/api/ws/stats`
+      }
+    },
+    links: {
+      documentation: '/api/docs',
+      health: '/healthz',
+      api: '/api'
+    }
+  });
+});
+
+// ============================================
 // HEALTH CHECK ENDPOINTS
 // ============================================
 

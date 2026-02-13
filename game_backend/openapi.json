@@ -6,7 +6,8 @@
     "version": "1.0.0",
     "contact": {
       "name": "TurfRun Backend Team"
-    }
+    },
+    "generatedAt": "2026-02-13T07:11:04.659Z"
   },
   "servers": [
     {
@@ -57,7 +58,9 @@
   "paths": {
     "/health": {
       "get": {
-        "tags": ["Health"],
+        "tags": [
+          "Health"
+        ],
         "summary": "Basic health check",
         "description": "Returns OK if the service is running",
         "operationId": "getHealth",
@@ -83,7 +86,9 @@
     },
     "/healthz": {
       "get": {
-        "tags": ["Health"],
+        "tags": [
+          "Health"
+        ],
         "summary": "Detailed readiness check",
         "description": "Returns detailed health status including Supabase connection",
         "operationId": "getReadiness",
@@ -103,7 +108,9 @@
     },
     "/api": {
       "get": {
-        "tags": ["WebSocket"],
+        "tags": [
+          "WebSocket"
+        ],
         "summary": "API information",
         "description": "Returns API metadata and available endpoints",
         "operationId": "getApiInfo",
@@ -123,7 +130,9 @@
     },
     "/api/ws/stats": {
       "get": {
-        "tags": ["WebSocket"],
+        "tags": [
+          "WebSocket"
+        ],
         "summary": "WebSocket connection statistics",
         "description": "Get current WebSocket connection counts and metrics",
         "operationId": "getWebSocketStats",
@@ -153,7 +162,9 @@
     },
     "/api/zones/bounds": {
       "get": {
-        "tags": ["Zones"],
+        "tags": [
+          "Zones"
+        ],
         "summary": "Get zones within bounds",
         "description": "Retrieve all zones within a rectangular viewport defined by coordinates",
         "operationId": "getZonesInBounds",
@@ -229,7 +240,9 @@
     },
     "/api/zones/nearby": {
       "get": {
-        "tags": ["Zones"],
+        "tags": [
+          "Zones"
+        ],
         "summary": "Get nearby zones",
         "description": "Get zones within a radius from a point",
         "operationId": "getNearbyZones",
@@ -294,7 +307,9 @@
     },
     "/api/zones/capture": {
       "post": {
-        "tags": ["Zones"],
+        "tags": [
+          "Zones"
+        ],
         "summary": "Capture a zone",
         "description": "Capture a territory zone at the given coordinates",
         "operationId": "captureZone",
@@ -309,7 +324,10 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["lat", "lon"],
+                "required": [
+                  "lat",
+                  "lon"
+                ],
                 "properties": {
                   "lat": {
                     "type": "number",
@@ -364,7 +382,9 @@
     },
     "/api/zones/{zoneId}/attack": {
       "post": {
-        "tags": ["Zones"],
+        "tags": [
+          "Zones"
+        ],
         "summary": "Attack a zone",
         "description": "Attack an enemy-controlled zone",
         "operationId": "attackZone",
@@ -440,7 +460,9 @@
     },
     "/api/zones/{zoneId}/defend": {
       "post": {
-        "tags": ["Zones"],
+        "tags": [
+          "Zones"
+        ],
         "summary": "Defend a zone",
         "description": "Defend your own zone with a defense boost",
         "operationId": "defendZone",
@@ -516,7 +538,9 @@
     },
     "/api/zones/{zoneId}/attack-range": {
       "get": {
-        "tags": ["Zones"],
+        "tags": [
+          "Zones"
+        ],
         "summary": "Check attack range",
         "description": "Check if user is in attack range of a zone",
         "operationId": "checkAttackRange",
@@ -597,7 +621,9 @@
     },
     "/api/player/stats": {
       "get": {
-        "tags": ["Player"],
+        "tags": [
+          "Player"
+        ],
         "summary": "Get player statistics",
         "description": "Retrieve current player statistics",
         "operationId": "getPlayerStats",
@@ -632,7 +658,9 @@
     },
     "/api/player/location": {
       "post": {
-        "tags": ["Player"],
+        "tags": [
+          "Player"
+        ],
         "summary": "Update player location",
         "description": "Update the player's current location",
         "operationId": "updatePlayerLocation",
@@ -647,7 +675,10 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["lat", "lon"],
+                "required": [
+                  "lat",
+                  "lon"
+                ],
                 "properties": {
                   "lat": {
                     "type": "number",
@@ -702,7 +733,9 @@
     },
     "/api/player/activity": {
       "get": {
-        "tags": ["Player"],
+        "tags": [
+          "Player"
+        ],
         "summary": "Get player activity log",
         "description": "Retrieve player's recent activity log",
         "operationId": "getPlayerActivity",
@@ -750,7 +783,9 @@
     },
     "/api/missions": {
       "get": {
-        "tags": ["Missions"],
+        "tags": [
+          "Missions"
+        ],
         "summary": "Get user missions",
         "description": "Retrieve user's missions with optional status filter",
         "operationId": "getUserMissions",
@@ -765,7 +800,11 @@
             "in": "query",
             "schema": {
               "type": "string",
-              "enum": ["active", "completed", "expired"]
+              "enum": [
+                "active",
+                "completed",
+                "expired"
+              ]
             },
             "description": "Filter by mission status"
           }
@@ -796,7 +835,9 @@
     },
     "/api/missions/initialize": {
       "post": {
-        "tags": ["Missions"],
+        "tags": [
+          "Missions"
+        ],
         "summary": "Initialize missions",
         "description": "Create initial missions for new user",
         "operationId": "initializeMissions",
@@ -841,7 +882,9 @@
     },
     "/api/notifications": {
       "get": {
-        "tags": ["Notifications"],
+        "tags": [
+          "Notifications"
+        ],
         "summary": "Get user notifications",
         "description": "Retrieve user's notifications with filters",
         "operationId": "getUserNotifications",
@@ -898,7 +941,9 @@
     },
     "/api/notifications/{notificationId}/read": {
       "patch": {
-        "tags": ["Notifications"],
+        "tags": [
+          "Notifications"
+        ],
         "summary": "Mark notification as read",
         "description": "Mark a specific notification as read",
         "operationId": "markNotificationRead",
@@ -955,7 +1000,9 @@
     },
     "/api/notifications/read-all": {
       "patch": {
-        "tags": ["Notifications"],
+        "tags": [
+          "Notifications"
+        ],
         "summary": "Mark all notifications as read",
         "description": "Mark all user notifications as read",
         "operationId": "markAllNotificationsRead",
@@ -990,7 +1037,9 @@
     },
     "/api/leaderboard": {
       "get": {
-        "tags": ["Leaderboard"],
+        "tags": [
+          "Leaderboard"
+        ],
         "summary": "Get leaderboard",
         "description": "Get top players leaderboard",
         "operationId": "getLeaderboard",
@@ -1140,7 +1189,10 @@
           },
           "supabase": {
             "type": "string",
-            "enum": ["connected", "error"]
+            "enum": [
+              "connected",
+              "error"
+            ]
           }
         }
       },
