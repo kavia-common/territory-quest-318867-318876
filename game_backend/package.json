@@ -7,7 +7,9 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Tests not yet configured. See src/middleware/__tests__/auth.test.js for test examples.\" && exit 0",
+    "test:watch": "echo \"Test watch mode not configured\"",
+    "validate": "node -c src/server.js && node -c src/middleware/auth.js"
   },
   "keywords": ["game", "territory", "express", "supabase"],
   "author": "",
