@@ -4,6 +4,7 @@ import playerRoutes from './player.js';
 import missionsRoutes from './missions.js';
 import notificationsRoutes from './notifications.js';
 import leaderboardRoutes from './leaderboard.js';
+import { getConnectionStats } from '../websocket/index.js';
 
 const router = express.Router();
 
@@ -18,10 +19,39 @@ router.get('/', (req, res) => {
       player: '/api/player',
       missions: '/api/missions',
       notifications: '/api/notifications',
-      leaderboard: '/api/leaderboard'
+      leaderboard: '/api/leaderboard',
+      websocket_stats: '/api/ws/stats'
+    },
+    websocket: {
+      url: '/ws',
+      documentation: 'See docs/WEBSOCKET.md'
     },
     documentation: '/api/docs'
   });
+});
+
+// PUBLIC_INTERFACE
+/**
+ * GET /api/ws/stats
+ * Get WebSocket connection statistics
+ * Returns current connection counts and metrics
+ */
+router.get('/ws/stats', (req, res) => {
+  try {
+    const stats = getConnectionStats();
+    res.json({
+      success: true,
+      data: stats
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: {
+        message: 'Failed to retrieve WebSocket statistics',
+        statusCode: 500
+      }
+    });
+  }
 });
 
 // Mount route modules

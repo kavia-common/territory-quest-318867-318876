@@ -37,6 +37,15 @@ Required environment variables (see `.env` file):
 npm install
 ```
 
+**Dependencies Include:**
+- `@supabase/supabase-js` - Supabase client for auth and realtime
+- `ws` - WebSocket server implementation
+- `express` - HTTP server framework
+- `winston` - Logging
+- `helmet` - Security headers
+- `cors` - CORS middleware
+- `joi` - Validation
+
 ## Running the Server
 
 Development mode (with auto-reload):
@@ -81,20 +90,44 @@ npm start
 
 ## WebSocket
 
-Connect to `ws://localhost:3001/ws` for real-time notifications.
+Connect to `ws://localhost:3001/ws` for real-time notifications and game events.
 
-### Message Types
+### Features
 
-**Client to Server:**
-- `authenticate` - Authenticate connection with userId
-- `ping` - Heartbeat check
+- **JWT Authentication**: Secure connection with Supabase JWT tokens
+- **Supabase Realtime Integration**: Automatic subscriptions to database events
+- **Connection Management**: Heartbeat, timeout detection, automatic cleanup
+- **User-Specific Routing**: Messages delivered only to relevant users
+- **Real-time Events**: Instant notifications for zone captures, attacks, missions, etc.
 
-**Server to Client:**
-- `connected` - Connection established
-- `authenticated` - Authentication successful
-- `pong` - Heartbeat response
-- `notification` - Game notification
-- `error` - Error message
+### Quick Start
+
+```javascript
+const ws = new WebSocket('ws://localhost:3001/ws');
+
+ws.onmessage = (event) => {
+  const message = JSON.parse(event.data);
+  if (message.type === 'connected') {
+    // Authenticate with JWT token
+    ws.send(JSON.stringify({
+      type: 'authenticate',
+      token: 'your_supabase_jwt_token'
+    }));
+  }
+};
+```
+
+### Documentation
+
+For comprehensive WebSocket documentation, see [docs/WEBSOCKET.md](docs/WEBSOCKET.md)
+
+**Key Topics:**
+- Connection lifecycle and authentication
+- Message types and formats
+- Client implementation examples (JavaScript, Flutter)
+- Supabase Realtime integration
+- Error handling and troubleshooting
+- Best practices for mobile and web clients
 
 ## Authentication
 
