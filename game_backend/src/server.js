@@ -5,6 +5,9 @@ import dotenv from 'dotenv';
 import helmet from 'helmet';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 import { errorHandler } from './middleware/errorHandler.js';
 import { requestLogger } from './middleware/requestLogger.js';
 import { requestTimeout } from './middleware/requestTimeout.js';
@@ -13,6 +16,9 @@ import logger from './utils/logger.js';
 import routes from './routes/index.js';
 import healthRoutes from './routes/health.js';
 import { initializeWebSocket } from './websocket/index.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // Load environment variables
 dotenv.config();
@@ -88,6 +94,100 @@ app.use(requestTimeout(REQUEST_TIMEOUT_MS));
 app.use('/', healthRoutes);
 
 // ============================================
+// API DOCUMENTATION (Swagger UI)
+// ============================================
+
+// PUBLIC_INTERFACE
+/**
+ * GET /api/docs
+ * Swagger UI documentation endpoint
+ * Serves interactive API documentation
+ */
+app.get('/api/docs', (req, res) => {
+  const swaggerHtml = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TurfRun API Documentation</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.10.5/swagger-ui.css">
+  <style>
+    body { margin: 0; padding: 0; }
+    .swagger-ui .topbar { display: none; }
+  </style>
+</head>
+<body>
+  <div id="swagger-ui"></div>
+  <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.10.5/swagger-ui-bundle.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.10.5/swagger-ui-standalone-preset.js"></script>
+  <script>
+    window.onload = function() {
+      const ui = SwaggerUIBundle({
+        url: '/api/openapi.json',
+        dom_id: '#swagger-ui',
+        deepLinking: true,
+        presets: [
+          SwaggerUIBundle.presets.apis,
+          SwaggerUIStandalonePreset
+        ],
+        plugins: [
+          SwaggerUIBundle.plugins.DownloadUrl
+        ],
+        layout: "StandaloneLayout",
+        defaultModelsExpandDepth: 1,
+        defaultModelExpandDepth: 1,
+        docExpansion: 'list',
+        filter: true,
+        tryItOutEnabled: true
+      });
+      window.ui = ui;
+    };
+  </script>
+</body>
+</html>
+  `;
+  res.setHeader('Content-Type', 'text/html');
+  res.send(swaggerHtml);
+});
+
+// PUBLIC_INTERFACE
+/**
+ * GET /api/openapi.json
+ * OpenAPI 3.0 specification endpoint
+ * Returns the API specification in JSON format
+ */
+app.get('/api/openapi.json', (req, res) => {
+  try {
+    const openapiPath = join(__dirname, '..', 'openapi.json');
+    const openapiSpec = JSON.parse(readFileSync(openapiPath, 'utf8'));
+    
+    // Replace server URL placeholder with actual URL
+    const protocol = req.protocol;
+    const host = req.get('host');
+    const baseUrl = `${protocol}://${host}`;
+    
+    if (openapiSpec.servers) {
+      openapiSpec.servers[0] = {
+        url: baseUrl,
+        description: 'Current server'
+      };
+    }
+    
+    res.json(openapiSpec);
+  } catch (error) {
+    logger.error('Error loading OpenAPI spec:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        message: 'Failed to load API specification',
+        statusCode: 500
+      }
+    });
+  }
+});
+
+// ============================================
 // API ROUTES
 // ============================================
 
@@ -125,6 +225,8 @@ httpServer.listen(PORT, process.env.HOST || '0.0.0.0', () => {
   logger.info(`🔌 WebSocket Server: ws://${process.env.HOST || '0.0.0.0'}:${PORT}/ws`);
   logger.info(`✅ Health check: http://${process.env.HOST || '0.0.0.0'}:${PORT}/health`);
   logger.info(`🏥 Readiness check: http://${process.env.HOST || '0.0.0.0'}:${PORT}/healthz`);
+  logger.info(`📚 API Documentation: http://${process.env.HOST || '0.0.0.0'}:${PORT}/api/docs`);
+  logger.info(`📄 OpenAPI Spec: http://${process.env.HOST || '0.0.0.0'}:${PORT}/api/openapi.json`);
 });
 
 // ============================================

@@ -1,5 +1,151 @@
 # TurfRun Game Backend
 
+## Quick Start
+
+Run the backend server with a single command:
+
+```bash
+chmod +x start.sh
+./start.sh
+```
+
+The script will:
+1. Check for dependencies and install if needed
+2. Generate OpenAPI specification
+3. Start the Express server
+
+## API Documentation
+
+Once the server is running, access the interactive Swagger UI documentation:
+
+**Swagger UI**: http://localhost:3001/api/docs
+
+**OpenAPI Spec**: http://localhost:3001/api/openapi.json
+
+The Swagger UI provides:
+- Interactive API testing
+- Complete endpoint documentation
+- Request/response schemas
+- Authentication examples
+
+## Available Scripts
+
+- `npm start` - Start production server
+- `npm run dev` - Start development server with auto-reload
+- `npm run generate:openapi` - Generate OpenAPI specification
+- `npm run validate` - Validate JavaScript syntax
+- `./start.sh` - One-command startup (recommended)
+
+## Environment Variables
+
+Create a `.env` file in the root directory with the following variables:
+
+```env
+# Server Configuration
+PORT=3001
+NODE_ENV=development
+HOST=0.0.0.0
+
+# Supabase Configuration
+SUPABASE_URL=your_supabase_url
+SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+
+# CORS Configuration
+ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8080
+ALLOWED_METHODS=GET,POST,PUT,DELETE,PATCH,OPTIONS
+ALLOWED_HEADERS=Content-Type,Authorization
+
+# Rate Limiting
+RATE_LIMIT_WINDOW_S=60
+RATE_LIMIT_MAX=100
+
+# Request Timeout
+REQUEST_TIMEOUT_MS=30000
+
+# Optional
+TRUST_PROXY=false
+```
+
+## API Endpoints
+
+### Health Checks
+- `GET /health` - Basic health check
+- `GET /healthz` - Detailed readiness check
+
+### Zones
+- `GET /api/zones/bounds` - Get zones within bounds
+- `GET /api/zones/nearby` - Get nearby zones
+- `POST /api/zones/capture` - Capture a zone (auth required)
+- `POST /api/zones/:zoneId/attack` - Attack a zone (auth required)
+- `POST /api/zones/:zoneId/defend` - Defend a zone (auth required)
+- `GET /api/zones/:zoneId/attack-range` - Check attack range
+
+### Player
+- `GET /api/player/stats` - Get player statistics (auth required)
+- `POST /api/player/location` - Update player location (auth required)
+- `GET /api/player/activity` - Get activity log (auth required)
+
+### Missions
+- `GET /api/missions` - Get user missions (auth required)
+- `POST /api/missions/initialize` - Initialize missions (auth required)
+
+### Notifications
+- `GET /api/notifications` - Get notifications (auth required)
+- `PATCH /api/notifications/:id/read` - Mark as read (auth required)
+- `PATCH /api/notifications/read-all` - Mark all as read (auth required)
+
+### Leaderboard
+- `GET /api/leaderboard` - Get top players
+
+### WebSocket
+- `WS /ws` - WebSocket connection for real-time updates
+- `GET /api/ws/stats` - Get WebSocket statistics
+
+See `/api/docs` for complete interactive documentation.
+
+## Authentication
+
+All authenticated endpoints require a Bearer token in the Authorization header:
+
+```
+Authorization: Bearer <your_supabase_jwt_token>
+```
+
+Tokens are obtained through Supabase authentication.
+
+## WebSocket Usage
+
+Connect to the WebSocket server at `ws://localhost:3001/ws` with authentication:
+
+```javascript
+const ws = new WebSocket('ws://localhost:3001/ws?token=<your_jwt_token>');
+```
+
+See `docs/WEBSOCKET.md` for detailed WebSocket documentation.
+
+## Development
+
+For development with auto-reload:
+
+```bash
+npm run dev
+```
+
+## Production
+
+For production deployment:
+
+```bash
+NODE_ENV=production npm start
+```
+
+Or use the start script:
+
+```bash
+NODE_ENV=production ./start.sh
+```
+
 Express.js backend API for the TurfRun territory capture game.
 
 ## Features
